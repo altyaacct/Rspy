@@ -1,0 +1,24 @@
+local module = {}
+
+function module.disableHooks(synv3, hookmetamethod, hookfunction, getrawmetatable, game, originalnamecall, originalEvent, originalFunction, originalUnreliableEvent, unhook, restorefunction)
+    if synv3 then
+        unhook(getrawmetatable(game).__namecall, originalnamecall)
+        unhook(Instance.new("RemoteEvent").FireServer, originalEvent)
+        unhook(Instance.new("RemoteFunction").InvokeServer, originalFunction)
+        unhook(Instance.new("UnreliableRemoteEvent").FireServer, originalUnreliableEvent)
+        restorefunction(originalnamecall)
+        restorefunction(originalEvent)
+        restorefunction(originalFunction)
+    else
+        if hookmetamethod then
+            hookmetamethod(game, "__namecall", originalnamecall)
+        else
+            hookfunction(getrawmetatable(game).__namecall, originalnamecall)
+        end
+        hookfunction(Instance.new("RemoteEvent").FireServer, originalEvent)
+        hookfunction(Instance.new("RemoteFunction").InvokeServer, originalFunction)
+        hookfunction(Instance.new("UnreliableRemoteEvent").FireServer, originalUnreliableEvent)
+    end
+end
+
+return module
