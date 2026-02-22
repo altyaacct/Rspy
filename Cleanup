@@ -1,0 +1,72 @@
+-- RSpy V4 - Cleanup Module
+-- Save as: cleanup.lua
+
+local module = {}
+
+function module.cleanupScheduler(schedulerconnect)
+    if schedulerconnect then
+        pcall(function() schedulerconnect:Disconnect() end)
+    end
+    return nil
+end
+
+function module.cleanupConnections(connections)
+    for k, v in pairs(connections) do
+        if typeof(v) == "RBXScriptConnection" then
+            pcall(function() v:Disconnect() end)
+        end
+        connections[k] = nil
+    end
+end
+
+function module.cleanupThreads(running_threads)
+    local close = coroutine.close
+    local status = coroutine.status
+    
+    for i = #running_threads, 1, -1 do
+        local thread = running_threads[i]
+        if thread and status(thread) ~= "dead" then
+            pcall(close, thread)
+        end
+        running_threads[i] = nil
+    end
+end
+
+function module.cleanupLogs(logs)
+    for i = #logs, 1, -1 do
+        logs[i] = nil
+    end
+end
+
+function module.cleanupRemoteLogs(remoteLogs)
+    for i = #remoteLogs, 1, -1 do
+        local entry = remoteLogs[i]
+        if entry then
+            if typeof(entry[1]) == "RBXScriptConnection" then
+                pcall(function() entry[1]:Disconnect() end)
+            end
+            if typeof(entry[2]) == "Instance" then
+                pcall(function() entry[2]:Destroy() end)
+            end
+        end
+        remoteLogs[i] = nil
+    end
+end
+
+function module.cleanupGUI(SimpleSpy3, Storage)
+    pcall(function()
+        if SimpleSpy3 then SimpleSpy3:Destroy() end
+    end)
+    pcall(function()
+        if Storage then Storage:Destroy() end
+    end)
+end
+
+function module.restoreMouse()
+    local UserInputService = game:GetService("UserInputService")
+    pcall(function()
+        UserInputService.MouseIconEnabled = true
+    end)
+end
+
+return module
