@@ -1,0 +1,106 @@
+local module = {}
+
+module.bypassSuccess = false
+module.detectedFunc = nil
+module.killFunc = nil
+module.hookedACFunctions = {}
+module.originalDebugInfo = nil
+module.gcScanComplete = false
+
+function module.runBypass()
+    task.spawn(function()
+        pcall(function()
+            local getInfo = getinfo or debug.getinfo
+            
+            if setthreadidentity then
+                setthreadidentity(2)
+            elseif set_thread_identity then
+                set_thread_identity(2)
+            elseif syn and syn.set_thread_identity then
+                syn.set_thread_identity(2)
+            end
+            
+            local gcObjects = getgc(true)
+            local scannedCount = 0
+            
+            for _, value in ipairs(gcObjects) do
+                scannedCount = scannedCount + 1
+                
+                if scannedCount % 500 == 0 then
+                    task.wait()
+                end
+                
+                if typeof(value) == "table" then
+                    local detected = rawget(value, "Detected")
+                    local kill = rawget(value, "Kill")
+                    
+                    if typeof(detected) == "function" and not module.detectedFunc then
+                        module.detectedFunc = detected
+                        local originalHook = hookfunction(detected, newcclosure(function(method, info, ...)
+                            if method ~= "_" then
+                                task.spawn(function()
+                                    pcall(function()
+                                        warn("[SimpleSpy V4] Adonis detection bypassed: " .. tostring(method))
+                                    end)
+                                end)
+                            end
+                            return true
+                        end))
+                        table.insert(module.hookedACFunctions, {func = detected, original = originalHook})
+                    end
+                    
+                    if rawget(value, "Variables") and rawget(value, "Process") and typeof(kill) == "function" and not module.killFunc then
+                        module.killFunc = kill
+                        local originalHook = hookfunction(kill, newcclosure(function(info)
+                            task.spawn(function()
+                                pcall(function()
+                                    warn("[SimpleSpy V4] Adonis kill attempt blocked: " .. tostring(info))
+                                end)
+                            end)
+                        end))
+                        table.insert(module.hookedACFunctions, {func = kill, original = originalHook})
+                    end
+                end
+                
+                if module.detectedFunc and module.killFunc then
+                    break
+                end
+            end
+            
+            module.gcScanComplete = true
+            
+            if getrenv and getrenv().debug and getrenv().debug.info then
+                module.originalDebugInfo = hookfunction(getrenv().debug.info, newcclosure(function(...)
+                    local firstArg, _ = ...
+                    if module.detectedFunc and firstArg == module.detectedFunc then
+                        return coroutine.yield(coroutine.running())
+                    end
+                    return module.originalDebugInfo(...)
+                end))
+            end
+            
+            if setthreadidentity then
+                setthreadidentity(7)
+            elseif set_thread_identity then
+                set_thread_identity(7)
+            elseif syn and syn.set_thread_identity then
+                syn.set_thread_identity(7)
+            end
+            
+            module.bypassSuccess = true
+        end)
+        
+        if module.bypassSuccess then
+            print("╔═══════════════════════════════════════╗")
+            print("║   Anti-Cheat Bypass: ✓ SUCCESSFUL    ║")
+            print("╚═══════════════════════════════════════╝")
+        else
+            warn("╔═══════════════════════════════════════╗")
+            warn("║   Anti-Cheat Bypass: ⚠ PARTIAL        ║")
+            warn("║   (Game may not have Adonis AC)       ║")
+            warn("╚═══════════════════════════════════════╝")
+        end
+    end)
+end
+
+return module
