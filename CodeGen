@@ -1,0 +1,290 @@
+local module = {}
+
+function module.v2s(v, l, p, n, vtv, i, pt, path, tables, tI, typeofv2sfunctions, typev2sfunctions)
+    local vtypeof = typeof(v)
+    local vtypeoffunc = typeofv2sfunctions[vtypeof]
+    local vtypefunc = typev2sfunctions[type(v)]
+    local vtype = type(v)
+    if not tI then
+        tI = {0}
+    else
+        tI[1] += 1
+    end
+
+    if vtypeoffunc then
+        return vtypeoffunc(v, l, p, n, vtv, i, pt, path, tables, tI)
+    elseif vtypefunc then
+        return vtypefunc(v,vtypeof)
+    end
+    return `{vtypeof}({tostring(v)})`
+end
+
+function module.t2s(t, l, p, n, vtv, i, pt, path, tables, tI, v2s, v2p, scheduleWait, indent, getgenv, rawtostring)
+    local globalIndex = table.find(getgenv(), t)
+    if type(globalIndex) == "string" then
+        return globalIndex
+    end
+    if not tI then
+        tI = {0}
+    end
+    if not path then
+        path = ""
+    end
+    if not l then
+        l = 0
+        tables = {}
+    end
+    if not p then
+        p = t
+    end
+    for _, v in next, tables do
+        if n and rawequal(v, t) then
+            return "{}"
+        end
+    end
+    table.insert(tables, t)
+    local s = "{"
+    local size = 0
+    l += indent
+    for k, v in next, t do
+        size = size + 1
+        if size > (getgenv().SimpleSpyMaxTableSize or 1000) then
+            s = s .. "\n" .. string.rep(" ", l)
+            break
+        end
+        if rawequal(k, t) then
+            size -= 1
+            continue
+        end
+        local currentPath = ""
+        if type(k) == "string" and k:match("^[%a_]+[%w_]*$") then
+            currentPath = "." .. k
+        else
+            currentPath = "[" .. v2s(k, l, p, n, vtv, k, t, path .. currentPath, tables, tI) .. "]"
+        end
+        if size % 100 == 0 then
+            scheduleWait()
+        end
+        s = s .. "\n" .. string.rep(" ", l) .. "[" .. v2s(k, l, p, n, vtv, k, t, path .. currentPath, tables, tI) .. "] = " .. v2s(v, l, p, n, vtv, k, t, path .. currentPath, tables, tI) .. ","
+    end
+    if #s > 1 then
+        s = s:sub(1, #s - 1)
+    end
+    if size > 0 then
+        s = s .. "\n" .. string.rep(" ", l - indent)
+    end
+    return s .. "}"
+end
+
+function module.f2s(f, info, getgenv, v2p, v2s, configs)
+    for k, x in next, getgenv() do
+        local isgucci, gpath
+        if rawequal(x, f) then
+            isgucci, gpath = true, ""
+        elseif type(x) == "table" then
+            isgucci, gpath = v2p(f, x)
+        end
+        if isgucci and type(k) ~= "function" then
+            if type(k) == "string" and k:match("^[%a_]+[%w_]*$") then
+                return k .. gpath
+            else
+                return "getgenv()[" .. v2s(k) .. "]" .. gpath
+            end
+        end
+    end
+    
+    if configs.funcEnabled then
+        local funcname = info(f,"n")
+        
+        if funcname and funcname:match("^[%a_]+[%w_]*$") then
+            return `function {funcname}() end`
+        end
+    end
+    return tostring(f)
+end
+
+function module.i2p(i, customgen, getplayer, game, Players, SafeGetService, formatstr, getnilrequired)
+    if customgen then
+        return customgen
+    end
+    local player = getplayer(i)
+    local parent = i
+    local out = ""
+    if parent == nil then
+        return "nil"
+    elseif player then
+        while true do
+            if parent and parent == player.Character then
+                if player == Players.LocalPlayer then
+                    return 'game:GetService("Players").LocalPlayer.Character' .. out
+                else
+                    return module.i2p(player, nil, getplayer, game, Players, SafeGetService, formatstr, getnilrequired) .. ".Character" .. out
+                end
+            else
+                if parent.Name:match("[%a_]+[%w+]*") ~= parent.Name then
+                    out = ':FindFirstChild(' .. formatstr(parent.Name) .. ')' .. out
+                else
+                    out = "." .. parent.Name .. out
+                end
+            end
+            task.wait()
+            parent = parent.Parent
+        end
+    elseif parent ~= game then
+        while true do
+            if parent and parent.Parent == game then
+                if SafeGetService(parent.ClassName) then
+                    if string.lower(parent.ClassName) == "workspace" then
+                        return `workspace{out}`
+                    else
+                        return 'game:GetService("' .. parent.ClassName .. '")' .. out
+                    end
+                else
+                    if parent.Name:match("[%a_]+[%w_]*") then
+                        return "game." .. parent.Name .. out
+                    else
+                        return 'game:FindFirstChild(' .. formatstr(parent.Name) .. ')' .. out
+                    end
+                end
+            elseif not parent.Parent then
+                getnilrequired = true
+                return 'getNil(' .. formatstr(parent.Name) .. ', "' .. parent.ClassName .. '")' .. out
+            else
+                if parent.Name:match("[%a_]+[%w_]*") ~= parent.Name then
+                    out = ':WaitForChild(' .. formatstr(parent.Name) .. ')' .. out
+                else
+                    out = ':WaitForChild("' .. parent.Name .. '")'..out
+                end
+            end
+            if i:IsDescendantOf(Players.LocalPlayer) then
+                return 'game:GetService("Players").LocalPlayer'..out
+            end
+            parent = parent.Parent
+            task.wait()
+        end
+    else
+        return "game"
+    end
+end
+
+function module.v2p(x, t, path, prev, v2s)
+    if not path then
+        path = ""
+    end
+    if not prev then
+        prev = {}
+    end
+    if rawequal(x, t) then
+        return true, ""
+    end
+    for i, v in next, t do
+        if rawequal(v, x) then
+            if type(i) == "string" and i:match("^[%a_]+[%w_]*$") then
+                return true, (path .. "." .. i)
+            else
+                return true, (path .. "[" .. v2s(i) .. "]")
+            end
+        end
+        if type(v) == "table" then
+            local duplicate = false
+            for _, y in next, prev do
+                if rawequal(y, v) then
+                    duplicate = true
+                end
+            end
+            if not duplicate then
+                table.insert(prev, t)
+                local found
+                found, p = module.v2p(x, v, path, prev, v2s)
+                if found then
+                    if type(i) == "string" and i:match("^[%a_]+[%w_]*$") then
+                        return true, "." .. i .. p
+                    else
+                        return true, "[" .. v2s(i) .. "]" .. p
+                    end
+                end
+            end
+        end
+    end
+    return false, ""
+end
+
+function module.formatstr(s, indentation, handlespecials)
+    if not indentation then
+        indentation = 0
+    end
+    local handled, reachedMax = handlespecials(s, indentation)
+    return '"' .. handled .. '"' .. (reachedMax and "" or "")
+end
+
+function module.handlespecials(s, indentation, string, create, resume, status, RunService, clear, getgenv)
+    local i = 0
+    local n = 1
+    local coroutines = {}
+    local coroutineFunc = function(i, r)
+        s = s:sub(0, i - 1) .. r .. s:sub(i + 1, -1)
+    end
+    local timeout = 0
+    local specialstrings = {
+        ["\n"] = function(thread,index)
+            resume(thread,index,"\\n")
+        end,
+        ["\t"] = function(thread,index)
+            resume(thread,index,"\\t")
+        end,
+        ["\\"] = function(thread,index)
+            resume(thread,index,"\\\\")
+        end,
+        ['"'] = function(thread,index)
+            resume(thread,index,"\\\"")
+        end
+    }
+    repeat
+        i += 1
+        if timeout >= 10 then
+            task.wait()
+            timeout = 0
+        end
+        local char = s:sub(i, i)
+
+        if string.byte(char) then
+            timeout += 1
+            local c = create(coroutineFunc)
+            table.insert(coroutines, c)
+            local specialfunc = specialstrings[char]
+
+            if specialfunc then
+                specialfunc(c,i)
+                i += 1
+            elseif string.byte(char) > 126 or string.byte(char) < 32 then
+                resume(c, i, "\\" .. string.byte(char))
+                i += #tostring(string.byte(char))
+            end
+            if i >= n * 100 then
+                local extra = string.format('" ..\n%s"', string.rep(" ", indentation + 4))
+                s = s:sub(0, i) .. extra .. s:sub(i + 1, -1)
+                i += #extra
+                n += 1
+            end
+        end
+    until char == "" or i > (getgenv().SimpleSpyMaxStringSize or 10000)
+    while true do
+        local allDead = true
+        for _, v in next, coroutines do
+            if status(v) == "running" then
+                allDead = false
+                break
+            end
+        end
+        if allDead then break end
+        RunService.Heartbeat:Wait()
+    end
+    clear(coroutines)
+    if i > (getgenv().SimpleSpyMaxStringSize or 10000) then
+        s = string.sub(s, 0, getgenv().SimpleSpyMaxStringSize or 10000)
+        return s, true
+    end
+    return s, false
+end
+
+return module
