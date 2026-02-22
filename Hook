@@ -1,23 +1,39 @@
 local module = {}
 
 function module.disableHooks(synv3, hookmetamethod, hookfunction, getrawmetatable, game, originalnamecall, originalEvent, originalFunction, originalUnreliableEvent, unhook, restorefunction)
-    if synv3 then
-        unhook(getrawmetatable(game).__namecall, originalnamecall)
-        unhook(Instance.new("RemoteEvent").FireServer, originalEvent)
-        unhook(Instance.new("RemoteFunction").InvokeServer, originalFunction)
-        unhook(Instance.new("UnreliableRemoteEvent").FireServer, originalUnreliableEvent)
-        restorefunction(originalnamecall)
-        restorefunction(originalEvent)
-        restorefunction(originalFunction)
-    else
-        if hookmetamethod then
+    if synv3 and unhook then
+        pcall(function()
+            unhook(getrawmetatable(game).__namecall)
+            unhook(Instance.new("RemoteEvent").FireServer)
+            unhook(Instance.new("RemoteFunction").InvokeServer)
+            unhook(Instance.new("UnreliableRemoteEvent").FireServer)
+        end)
+    elseif restorefunction then
+        pcall(function()
+            restorefunction(getrawmetatable(game).__namecall)
+            restorefunction(Instance.new("RemoteEvent").FireServer)
+            restorefunction(Instance.new("RemoteFunction").InvokeServer)
+            restorefunction(Instance.new("UnreliableRemoteEvent").FireServer)
+        end)
+    elseif hookmetamethod and originalnamecall then
+        pcall(function()
             hookmetamethod(game, "__namecall", originalnamecall)
-        else
-            hookfunction(getrawmetatable(game).__namecall, originalnamecall)
-        end
-        hookfunction(Instance.new("RemoteEvent").FireServer, originalEvent)
-        hookfunction(Instance.new("RemoteFunction").InvokeServer, originalFunction)
-        hookfunction(Instance.new("UnreliableRemoteEvent").FireServer, originalUnreliableEvent)
+        end)
+    elseif hookfunction then
+        pcall(function()
+            if originalnamecall then
+                hookfunction(getrawmetatable(game).__namecall, originalnamecall)
+            end
+            if originalEvent then
+                hookfunction(Instance.new("RemoteEvent").FireServer, originalEvent)
+            end
+            if originalFunction then
+                hookfunction(Instance.new("RemoteFunction").InvokeServer, originalFunction)
+            end
+            if originalUnreliableEvent then
+                hookfunction(Instance.new("UnreliableRemoteEvent").FireServer, originalUnreliableEvent)
+            end
+        end)
     end
 end
 
