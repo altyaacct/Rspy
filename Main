@@ -328,9 +328,9 @@ function module.initialize(modules)
     local IndexHandler = Instance.new("BindableEvent",Storage)
     local GetDebugIdHandler = Instance.new("BindableFunction",Storage)
 
-    local originalEvent = remoteEvent.FireServer
-    local originalUnreliableEvent = unreliableRemoteEvent.FireServer
-    local originalFunction = remoteFunction.InvokeServer
+    local REAL_originalEvent = remoteEvent.FireServer
+    local REAL_originalUnreliableEvent = unreliableRemoteEvent.FireServer
+    local REAL_originalFunction = remoteFunction.InvokeServer
     local GetDebugIDInvoke = GetDebugIdHandler.Invoke
 
     function GetDebugIdHandler.OnInvoke(obj)
@@ -1357,7 +1357,10 @@ function module.initialize(modules)
             local remote = cloneref(...)
 
             if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") or remote:IsA("UnreliableRemoteEvent") then
-                if not configs.logcheckcaller and checkcaller and checkcaller() then return originalfunction(...) end
+                if not configs.logcheckcaller and checkcaller and checkcaller() then 
+                    return originalfunction(...) 
+                end
+                
                 local id = ThreadGetDebugId(remote)
                 local blockcheck = tablecheck(blocklist,remote,id)
                 local args = {select(2,...)}
@@ -1387,7 +1390,10 @@ function module.initialize(modules)
 
                     schedule(remoteHandler,data)
                 end
-                if blockcheck then return end
+                
+                if blockcheck then 
+                    return 
+                end
             end
         end
         return originalfunction(...)
@@ -1401,7 +1407,10 @@ function module.initialize(modules)
                 local remote = cloneref(...)
 
                 if IsA(remote,"RemoteEvent") or IsA(remote,"RemoteFunction") or IsA(remote,"UnreliableRemoteEvent") then    
-                    if not configs.logcheckcaller and checkcaller and checkcaller() then return originalnamecall(...) end
+                    if not configs.logcheckcaller and checkcaller and checkcaller() then 
+                        return originalnamecall(...) 
+                    end
+                    
                     local id = ThreadGetDebugId(remote)
                     local blockcheck = tablecheck(blocklist,remote,id)
                     local args = {select(2,...)}
@@ -1433,7 +1442,10 @@ function module.initialize(modules)
 
                         schedule(remoteHandler,data)
                     end
-                    if blockcheck then return end
+                    
+                    if blockcheck then 
+                        return 
+                    end
                 end
             end
         end
@@ -1445,14 +1457,14 @@ function module.initialize(modules)
             local oldnamecall
             if synv3 then
                 oldnamecall = hook(getrawmetatable(game).__namecall,clonefunction(newnamecall))
-                originalEvent = hook(Instance.new("RemoteEvent").FireServer, function(...)
-                    return newindex("FireServer",originalEvent,...)
+                REAL_originalEvent = hook(Instance.new("RemoteEvent").FireServer, function(...)
+                    return newindex("FireServer",REAL_originalEvent,...)
                 end)
-                originalFunction = hook(Instance.new("RemoteFunction").InvokeServer, function(...)
-                    return newindex("InvokeServer",originalFunction,...)
+                REAL_originalFunction = hook(Instance.new("RemoteFunction").InvokeServer, function(...)
+                    return newindex("InvokeServer",REAL_originalFunction,...)
                 end)
-                originalUnreliableEvent = hook(Instance.new("UnreliableRemoteEvent").FireServer, function(...)
-                    return newindex("FireServer",originalUnreliableEvent,...)
+                REAL_originalUnreliableEvent = hook(Instance.new("UnreliableRemoteEvent").FireServer, function(...)
+                    return newindex("FireServer",REAL_originalUnreliableEvent,...)
                 end)
             else
                 if hookmetamethod then
@@ -1460,21 +1472,21 @@ function module.initialize(modules)
                 else
                     oldnamecall = hookfunction(getrawmetatable(game).__namecall,clonefunction(newnamecall))
                 end
-                originalEvent = hookfunction(Instance.new("RemoteEvent").FireServer, function(...)
-                    return newindex("FireServer",originalEvent,...)
+                REAL_originalEvent = hookfunction(Instance.new("RemoteEvent").FireServer, function(...)
+                    return newindex("FireServer",REAL_originalEvent,...)
                 end)
-                originalFunction = hookfunction(Instance.new("RemoteFunction").InvokeServer, function(...)
-                    return newindex("InvokeServer",originalFunction,...)
+                REAL_originalFunction = hookfunction(Instance.new("RemoteFunction").InvokeServer, function(...)
+                    return newindex("InvokeServer",REAL_originalFunction,...)
                 end)
-                originalUnreliableEvent = hookfunction(Instance.new("UnreliableRemoteEvent").FireServer, function(...)
-                    return newindex("FireServer",originalUnreliableEvent,...)
+                REAL_originalUnreliableEvent = hookfunction(Instance.new("UnreliableRemoteEvent").FireServer, function(...)
+                    return newindex("FireServer",REAL_originalUnreliableEvent,...)
                 end)
             end
             originalnamecall = originalnamecall or function(...)
                 return oldnamecall(...)
             end
         else
-            HookModule.disableHooks(synv3, hookmetamethod, hookfunction, getrawmetatable, game, originalnamecall, originalEvent, originalFunction, originalUnreliableEvent, unhook, restorefunction)
+            HookModule.disableHooks(synv3, hookmetamethod, hookfunction, getrawmetatable, game, originalnamecall, REAL_originalEvent, REAL_originalFunction, REAL_originalUnreliableEvent, unhook, restorefunction)
         end
     end
 
@@ -1840,7 +1852,7 @@ function module.initialize(modules)
         CleanupModule.cleanupLogs(logs)
         CleanupModule.cleanupRemoteLogs(remoteLogs)
         pcall(function()
-            HookModule.disableHooks(synv3, hookmetamethod, hookfunction, getrawmetatable, game, originalnamecall, originalEvent, originalFunction, originalUnreliableEvent, unhook, restorefunction)
+            HookModule.disableHooks(synv3, hookmetamethod, hookfunction, getrawmetatable, game, originalnamecall, REAL_originalEvent, REAL_originalFunction, REAL_originalUnreliableEvent, unhook, restorefunction)
         end)
         CleanupModule.cleanupGUI(SimpleSpy3, Storage)
         CleanupModule.restoreMouse()
